@@ -1,4 +1,4 @@
-import MoviesDAO from '../dao/moviesDAO';
+import MoviesDAO from '../DAL/moviesDAL';
 
 export default class MoviesController {
   static async apiGetMovies(req, res, next) {

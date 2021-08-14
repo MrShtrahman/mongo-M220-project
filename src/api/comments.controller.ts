@@ -1,15 +1,16 @@
-import UsersDAO from '../dao/usersDAO';
-import CommentsDAO from '../dao/commentsDAO';
-import MoviesDAO from '../dao/moviesDAO';
+import { Request, Response, NextFunction } from 'express';
+import UsersDAO from '../DAL/usersDAL';
+import CommentsDAO from '../DAL/commentsDAL';
+import MoviesDAO from '../DAL/moviesDAL';
 import { User } from './users.controller';
 import { ObjectId } from 'bson';
 
 export default class CommentsController {
-  static async apiPostComment(req, res, next) {
+  static async apiPostComment(req: Request, res: Response, next: NextFunction) {
     try {
-      const userJwt = req.get('Authorization').slice('Bearer '.length);
-      const user = await User.decoded(userJwt);
-      var { error } = user;
+      const userJwt = req.get('Authorization')?.slice('Bearer '.length);
+      const user = await User.decoded(userJwt || '');
+      const { error } = user;
       if (error) {
         res.status(401).json({ error });
         return;
@@ -20,7 +21,7 @@ export default class CommentsController {
       const date = new Date();
 
       const commentResponse = await CommentsDAO.addComment(
-        ObjectId(movieId),
+        new ObjectId(movieId),
         user,
         comment,
         date
@@ -34,11 +35,15 @@ export default class CommentsController {
     }
   }
 
-  static async apiUpdateComment(req, res, next) {
+  static async apiUpdateComment(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     try {
-      const userJwt = req.get('Authorization').slice('Bearer '.length);
+      const userJwt = req.get('Authorization')?.slice('Bearer '.length);
       const user = await User.decoded(userJwt);
-      var { error } = user;
+      const { error } = user;
       if (error) {
         res.status(401).json({ error });
         return;
@@ -55,7 +60,7 @@ export default class CommentsController {
         date
       );
 
-      var { error } = commentResponse;
+      const { error } = commentResponse;
       if (error) {
         res.status(400).json({ error });
       }
@@ -75,11 +80,15 @@ export default class CommentsController {
     }
   }
 
-  static async apiDeleteComment(req, res, next) {
+  static async apiDeleteComment(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     try {
       const userJwt = req.get('Authorization').slice('Bearer '.length);
       const user = await User.decoded(userJwt);
-      var { error } = user;
+      const { error } = user;
       if (error) {
         res.status(401).json({ error });
         return;
@@ -101,11 +110,15 @@ export default class CommentsController {
     }
   }
 
-  static async apiCommentReport(req, res, next) {
+  static async apiCommentReport(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     try {
       const userJwt = req.get('Authorization').slice('Bearer '.length);
       const user = await User.decoded(userJwt);
-      var { error } = user;
+      const { error } = user;
       if (error) {
         res.status(401).json({ error });
         return;

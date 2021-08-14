@@ -6,5 +6,6 @@
   "trailingComma": "none",
   "parser": "babel",
   "semi": true,
-  "bracketSpacing": true
+  "bracketSpacing": true,
+  "arrowParens": "avoid"
 }

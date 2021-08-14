@@ -1,11 +1,22 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import UsersDAO from '../dao/usersDAO';
+import UsersDAO from '../DAL/usersDAL';
 
-const hashPassword = async (password: string) => await bcrypt.hash(password, 10);
+const hashPassword = async (password: string) =>
+  await bcrypt.hash(password, 10);
 
 export class User {
-  constructor({ name, email, password, preferences = {} } = {}) {
+  name: string;
+  email: string;
+  password: string;
+  preferences: Record<string, any>;
+
+  constructor(
+    name: string,
+    email: string,
+    password: string,
+    preferences: Record<string, any>
+  ) {
     this.name = name;
     this.email = email;
     this.password = password;

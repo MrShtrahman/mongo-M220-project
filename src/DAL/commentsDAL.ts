@@ -1,14 +1,22 @@
 import { ObjectId } from 'bson';
+import {
+  MongoClient,
+  Collection,
+  InsertOneResult,
+  UpdateResult,
+  DeleteResult,
+  Document
+} from 'mongodb';
 
-let comments;
+let comments: Collection;
 
 export default class CommentsDAO {
-  static async injectDB(conn) {
+  static injectDB(conn: MongoClient): void {
     if (comments) {
       return;
     }
     try {
-      comments = await conn.db(process.env.MFLIX_NS).collection('comments');
+      comments = conn.db(process.env.MFLIX_NS).collection('comments');
     } catch (e) {
       console.error(`Unable to establish collection handles in userDAO: ${e}`);
     }
@@ -39,9 +47,14 @@ export default class CommentsDAO {
    * @param {Object} user - An object containing the user's name and email.
    * @param {string} comment - The text of the comment.
    * @param {string} date - The date on which the comment was posted.
-   * @returns {DAOResponse} Returns an object with either DB response or "error"
+   * @returns {DALResponse} Returns an object with either DB response or "error"
    */
-  static async addComment(movieId, user, comment, date) {
+  static async addComment(
+    movieId: ObjectId,
+    user: Record<string, any>,
+    comment: string,
+    date: string
+  ): Promise<InsertOneResult<Document> | DALResponse> {
     try {
       // TODO Ticket: Create/Update Comments
       // Construct the comment document to be inserted into MongoDB.
@@ -62,9 +75,14 @@ export default class CommentsDAO {
    * @param {string} userEmail - The email of the user who owns the comment.
    * @param {string} text - The updated text of the comment.
    * @param {string} date - The date on which the comment was updated.
-   * @returns {DAOResponse} Returns an object with either DB response or "error"
+   * @returns {DALResponse} Returns an object with either DB response or "error"
    */
-  static async updateComment(commentId, userEmail, text, date) {
+  static async updateComment(
+    commentId: string,
+    userEmail: string,
+    text: string,
+    date: string
+  ): Promise<UpdateResult | Document | DALResponse> {
     try {
       // TODO Ticket: Create/Update Comments
       // Use the commentId and userEmail to select the proper comment, then
@@ -81,7 +99,10 @@ export default class CommentsDAO {
     }
   }
 
-  static async deleteComment(commentId, userEmail) {
+  static async deleteComment(
+    commentId: string,
+    userEmail: string
+  ): Promise<DeleteResult | DALResponse> {
     /**
     Ticket: Delete Comments
 
@@ -95,7 +116,7 @@ export default class CommentsDAO {
       // TODO Ticket: Delete Comments
       // Use the userEmail and commentId to delete the proper comment.
       const deleteResponse = await comments.deleteOne({
-        _id: ObjectId(commentId)
+        _id: new ObjectId(commentId)
       });
 
       return deleteResponse;
@@ -105,7 +126,7 @@ export default class CommentsDAO {
     }
   }
 
-  static async mostActiveCommenters() {
+  static async mostActiveCommenters(): Promise<Document[] | DALResponse> {
     /**
     Ticket: User Report
 
@@ -116,13 +137,13 @@ export default class CommentsDAO {
     try {
       // TODO Ticket: User Report
       // Return the 20 users who have commented the most on MFlix.
-      const pipeline = [];
+      const pipeline: Document[] = [];
 
       // TODO Ticket: User Report
       // Use a more durable Read Concern here to make sure this data is not stale.
       const readConcern = comments.readConcern;
 
-      const aggregateResult = await comments.aggregate(pipeline, {
+      const aggregateResult = comments.aggregate(pipeline, {
         readConcern
       });
 
@@ -133,10 +154,3 @@ export default class CommentsDAO {
     }
   }
 }
-
-/**
- * Success/Error return object
- * @typedef DAOResponse
- * @property {boolean} [success] - Success
- * @property {string} [error] - Error
- */

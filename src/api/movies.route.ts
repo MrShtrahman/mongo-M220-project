@@ -2,7 +2,7 @@ import { Router } from 'express';
 import MoviesCtrl from './movies.controller';
 import CommentsCtrl from './comments.controller';
 
-const router = new Router();
+const router = Router();
 
 // associate put, delete, and get(id)
 router.route('/').get(MoviesCtrl.apiGetMovies);

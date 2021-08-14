@@ -1,5 +1,5 @@
 declare global {
-    interface DAOResponse {
+    interface DALResponse {
         success?: boolean;
         error?: string;
     }
