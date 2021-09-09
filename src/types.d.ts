@@ -1,7 +1,7 @@
 declare global {
     interface DALResponse {
         success?: boolean;
-        error?: string;
+        error?: string | unknown;
     }
 }
 

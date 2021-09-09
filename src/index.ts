@@ -20,22 +20,20 @@ Please prevent the program from waiting indefinitely by setting the write
 concern timeout limit to 2500 milliseconds.
 */
 
-MongoClient.connect(
-  process.env.MFLIX_DB_URI || ''
-  // TODO: Connection Pooling
-  // Set the poolSize to 50 connections.
-  // TODO: Timeouts
-  // Set the write timeout limit to 2500 milliseconds.
-)
-  .catch(err => {
-    console.error(err.stack);
-    process.exit(1);
-  })
-  .then(client => {
+(async () => {
+  let client: MongoClient;
+  try {
+    client = await MongoClient.connect(process.env.MFLIX_DB_URI || '');
+    // TODO: Connection Pooling
+    // Set the poolSize to 50 connections.
+    // TODO: Timeouts
+    // Set the write timeout limit to 2500 milliseconds.
     MoviesDAO.injectDB(client);
     UsersDAO.injectDB(client);
     CommentsDAO.injectDB(client);
-    app.listen(port, () => {
-      console.log(`listening on port ${port}`);
-    });
-  });
+    app.listen(port, () => console.log(`listening on port ${port}`));
+  } catch (error) {
+    console.error(error);
+    process.exit(1);
+  }
+})();

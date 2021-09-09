@@ -46,14 +46,14 @@ export default class CommentsDAO {
    * @param {string} movieId - The _id of the movie in the `movies` collection.
    * @param {Object} user - An object containing the user's name and email.
    * @param {string} comment - The text of the comment.
-   * @param {string} date - The date on which the comment was posted.
+   * @param {Date} date - The date on which the comment was posted.
    * @returns {DALResponse} Returns an object with either DB response or "error"
    */
   static async addComment(
     movieId: ObjectId,
     user: Record<string, any>,
     comment: string,
-    date: string
+    date: Date
   ): Promise<InsertOneResult<Document> | DALResponse> {
     try {
       // TODO Ticket: Create/Update Comments
@@ -74,15 +74,15 @@ export default class CommentsDAO {
    * @param {string} commentId - The _id of the comment to update.
    * @param {string} userEmail - The email of the user who owns the comment.
    * @param {string} text - The updated text of the comment.
-   * @param {string} date - The date on which the comment was updated.
+   * @param {Date} date - The date on which the comment was updated.
    * @returns {DALResponse} Returns an object with either DB response or "error"
    */
   static async updateComment(
     commentId: string,
     userEmail: string,
     text: string,
-    date: string
-  ): Promise<UpdateResult | Document | DALResponse> {
+    date: Date
+  ): Promise<any> {
     try {
       // TODO Ticket: Create/Update Comments
       // Use the commentId and userEmail to select the proper comment, then

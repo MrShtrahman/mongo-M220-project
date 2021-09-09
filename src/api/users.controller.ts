@@ -1,9 +1,18 @@
+import { Response, Request, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import UsersDAO from '../DAL/usersDAL';
 
 const hashPassword = async (password: string) =>
   await bcrypt.hash(password, 10);
+
+interface UserType {
+  name: string;
+  email: string;
+  password?: string;
+  preferences: Record<string, any>;
+  general?: string;
+}
 
 export class User {
   name: string;
@@ -22,40 +31,41 @@ export class User {
     this.password = password;
     this.preferences = preferences;
   }
-  toJson() {
+  toJson(): UserType {
     return {
       name: this.name,
       email: this.email,
       preferences: this.preferences
     };
   }
-  async comparePassword(plainText) {
+  async comparePassword(plainText: string): Promise<boolean> {
     return await bcrypt.compare(plainText, this.password);
   }
-  encoded() {
+  encoded(): string {
     return jwt.sign(
       {
         exp: Math.floor(Date.now() / 1000) + 60 * 60 * 4,
         ...this.toJson()
       },
-      process.env.SECRET_KEY
+      process.env.SECRET_KEY || ''
     );
   }
-  static async decoded(userJwt: string) {
+  static async decoded(userJwt: string): Promise<any> {
     return jwt.verify(userJwt, process.env.SECRET_KEY || '', (error, res) => {
       if (error) {
         return { error };
       }
-      return new User(res);
+      const userFromDecoding = res as UserType;
+      return new User(userFromDecoding?.name, userFromDecoding?.email, userFromDecoding?.password || '', userFromDecoding.preferences);
     });
   }
 }
 
 export default class UserController {
-  static async register(req, res) {
+  static async register(req: Request, res: Response): Promise<void> {
     try {
       const userFromBody = req.body;
-      let errors = {};
+      const errors = {} as UserType;
       if (userFromBody && userFromBody.password.length < 8) {
         errors.password = 'Your password must be at least 8 characters.';
       }
@@ -75,9 +85,9 @@ export default class UserController {
 
       const insertResult = await UsersDAO.addUser(userInfo);
       if (!insertResult.success) {
-        errors.email = insertResult.error;
+        errors.email = insertResult.error + '';
       }
-      const userFromDB = await UsersDAO.getUser(userFromBody.email);
+      const userFromDB = await UsersDAO.getUser(userFromBody.email) as UserType;
       if (!userFromDB) {
         errors.general = 'Internal error, please try again later';
       }
@@ -87,7 +97,7 @@ export default class UserController {
         return;
       }
 
-      const user = new User(userFromDB);
+      const user = new User(userFromDB.name, userFromDB.email, userFromDB.password || '', userFromDB.preferences);
 
       res.json({
         auth_token: user.encoded(),
@@ -98,7 +108,7 @@ export default class UserController {
     }
   }
 
-  static async login(req, res, next) {
+  static async login(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { email, password } = req.body;
       if (!email || typeof email !== 'string') {
@@ -111,12 +121,12 @@ export default class UserController {
           .json({ error: 'Bad password format, expected string.' });
         return;
       }
-      let userData = await UsersDAO.getUser(email);
+      const userData = await UsersDAO.getUser(email) as UserType;
       if (!userData) {
         res.status(401).json({ error: 'Make sure your email is correct.' });
         return;
       }
-      const user = new User(userData);
+      const user = new User(userData.name, userData.email, userData.password || '', userData.preferences);
 
       if (!(await user.comparePassword(password))) {
         res.status(401).json({ error: 'Make sure your password is correct.' });
@@ -138,19 +148,13 @@ export default class UserController {
     }
   }
 
-  static async logout(req, res) {
+  static async logout(req: Request, res: Response): Promise<void> {
     try {
-      const userJwt = req.get('Authorization').slice('Bearer '.length);
-      const userObj = await User.decoded(userJwt);
-      var { error } = userObj;
-      if (error) {
-        res.status(401).json({ error });
-        return;
-      }
+      const userJwt = req.get('Authorization')?.slice('Bearer '.length);
+      const userObj = await User.decoded(userJwt || '');
       const logoutResult = await UsersDAO.logoutUser(userObj.email);
-      var { error } = logoutResult;
-      if (error) {
-        res.status(500).json({ error });
+      if (logoutResult.error) {
+        res.status(500).json({ error: logoutResult.error });
         return;
       }
       res.json(logoutResult);
@@ -159,29 +163,29 @@ export default class UserController {
     }
   }
 
-  static async delete(req, res) {
+  static async delete(req: Request, res: Response): Promise<void> {
     try {
-      let { password } = req.body;
+      const { password } = req.body;
       if (!password || typeof password !== 'string') {
         res
           .status(400)
           .json({ error: 'Bad password format, expected string.' });
         return;
       }
-      const userJwt = req.get('Authorization').slice('Bearer '.length);
-      const userClaim = await User.decoded(userJwt);
-      var { error } = userClaim;
-      if (error) {
-        res.status(401).json({ error });
+      const userJwt = req.get('Authorization')?.slice('Bearer '.length);
+      const userClaim = await User.decoded(userJwt || '');
+      if (userClaim.error) {
+        res.status(401).json({ error: userClaim.error });
         return;
       }
-      const user = new User(await UsersDAO.getUser(userClaim.email));
+      const userFromDB = await UsersDAO.getUser(userClaim.email);
+      const user = new User(userFromDB?.name, userFromDB?.email, userFromDB?.password, userFromDB?.preferences);
       if (!(await user.comparePassword(password))) {
         res.status(401).json({ error: 'Make sure your password is correct.' });
         return;
       }
       const deleteResult = await UsersDAO.deleteUser(userClaim.email);
-      var { error } = deleteResult;
+      const { error } = deleteResult;
       if (error) {
         res.status(500).json({ error });
         return;
@@ -192,11 +196,11 @@ export default class UserController {
     }
   }
 
-  static async save(req, res) {
+  static async save(req: Request, res: Response): Promise<void> {
     try {
-      const userJwt = req.get('Authorization').slice('Bearer '.length);
-      const userFromHeader = await User.decoded(userJwt);
-      var { error } = userFromHeader;
+      const userJwt = req.get('Authorization')?.slice('Bearer '.length);
+      const userFromHeader = await User.decoded(userJwt || '');
+      const { error } = userFromHeader;
       if (error) {
         res.status(401).json({ error });
         return;
@@ -207,7 +211,7 @@ export default class UserController {
         req.body.preferences
       );
       const userFromDB = await UsersDAO.getUser(userFromHeader.email);
-      const updatedUser = new User(userFromDB);
+      const updatedUser = new User(userFromDB?.name, userFromDB?.email, userFromDB?.password, userFromDB?.preferences);
 
       res.json({
         auth_token: updatedUser.encoded(),
@@ -219,10 +223,10 @@ export default class UserController {
   }
 
   // for internal use only
-  static async createAdminUser(req, res) {
+  static async createAdminUser(req: Request, res: Response): Promise<void> {
     try {
       const userFromBody = req.body;
-      let errors = {};
+      const errors = {} as UserType;
       if (userFromBody && userFromBody.password.length < 8) {
         errors.password = 'Your password must be at least 8 characters.';
       }
@@ -242,7 +246,7 @@ export default class UserController {
 
       const insertResult = await UsersDAO.addUser(userInfo);
       if (!insertResult.success) {
-        errors.email = insertResult.error;
+        errors.email = insertResult.error + '';
       }
 
       if (Object.keys(errors).length > 0) {
@@ -252,7 +256,7 @@ export default class UserController {
 
       const makeAdminResponse = await UsersDAO.makeAdmin(userFromBody.email);
 
-      const userFromDB = await UsersDAO.getUser(userFromBody.email);
+      const userFromDB = await UsersDAO.getUser(userFromBody.email) as UserType;
       if (!userFromDB) {
         errors.general = 'Internal error, please try again later';
       }
@@ -262,7 +266,7 @@ export default class UserController {
         return;
       }
 
-      const user = new User(userFromDB);
+      const user = new User(userFromDB.name, userFromDB.email, userFromDB.password || '', userFromDB.preferences);
       const jwt = user.encoded();
       const loginResponse = await UsersDAO.loginUser(user.email, jwt);
 

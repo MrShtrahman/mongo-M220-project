@@ -6,7 +6,11 @@ import { User } from './users.controller';
 import { ObjectId } from 'bson';
 
 export default class CommentsController {
-  static async apiPostComment(req: Request, res: Response, next: NextFunction) {
+  static async apiPostComment(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const userJwt = req.get('Authorization')?.slice('Bearer '.length);
       const user = await User.decoded(userJwt || '');
@@ -29,7 +33,7 @@ export default class CommentsController {
 
       const updatedComments = await MoviesDAO.getMovieByID(movieId);
 
-      res.json({ status: 'success', comments: updatedComments.comments });
+      res.json({ status: 'success', comments: updatedComments?.comments });
     } catch (e) {
       res.status(500).json({ e });
     }
@@ -39,30 +43,29 @@ export default class CommentsController {
     req: Request,
     res: Response,
     next: NextFunction
-  ) {
+  ): Promise<void> {
     try {
       const userJwt = req.get('Authorization')?.slice('Bearer '.length);
-      const user = await User.decoded(userJwt);
+      const user = await User.decoded(userJwt || '');
       const { error } = user;
       if (error) {
         res.status(401).json({ error });
         return;
       }
 
-      const commentId = req.body.comment_id;
+      const commentId = req.body.comment_id as string;
       const text = req.body.updated_comment;
       const date = new Date();
 
       const commentResponse = await CommentsDAO.updateComment(
-        ObjectId(commentId),
+        commentId,
         user.email,
         text,
         date
       );
 
-      const { error } = commentResponse;
-      if (error) {
-        res.status(400).json({ error });
+      if (commentResponse.error) {
+        res.status(400).json({ error: commentResponse.error });
       }
 
       if (commentResponse.modifiedCount === 0) {
@@ -84,24 +87,24 @@ export default class CommentsController {
     req: Request,
     res: Response,
     next: NextFunction
-  ) {
+  ): Promise<void> {
     try {
-      const userJwt = req.get('Authorization').slice('Bearer '.length);
-      const user = await User.decoded(userJwt);
+      const userJwt = req.get('Authorization')?.slice('Bearer '.length);
+      const user = await User.decoded(userJwt || '');
       const { error } = user;
       if (error) {
         res.status(401).json({ error });
         return;
       }
 
-      const commentId = req.body.comment_id;
+      const commentId = req.body.comment_id as string;
       const userEmail = user.email;
       const commentResponse = await CommentsDAO.deleteComment(
-        ObjectId(commentId),
+        commentId,
         userEmail
       );
 
-      const movieId = req.body.movie_id;
+      const movieId = req.body.movie_id as string;
 
       const { comments } = await MoviesDAO.getMovieByID(movieId);
       res.json({ comments });
@@ -114,17 +117,17 @@ export default class CommentsController {
     req: Request,
     res: Response,
     next: NextFunction
-  ) {
+  ): Promise<void> {
     try {
-      const userJwt = req.get('Authorization').slice('Bearer '.length);
-      const user = await User.decoded(userJwt);
+      const userJwt = req.get('Authorization')?.slice('Bearer '.length);
+      const user = await User.decoded(userJwt || '');
       const { error } = user;
       if (error) {
         res.status(401).json({ error });
         return;
       }
 
-      if (UsersDAO.checkAdmin(user.email)) {
+      if (await UsersDAO.checkAdmin(user.email)) {
         const report = await CommentsDAO.mostActiveCommenters();
         res.json({ report });
         return;

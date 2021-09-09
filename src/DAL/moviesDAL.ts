@@ -1,5 +1,5 @@
 import { ObjectId } from 'bson';
-import { Collection, MongoClient, Db } from 'mongodb';
+import { Collection, MongoClient, Db, Document } from 'mongodb';
 
 // This is a parsed query, sort, and project bundle.
 interface QueryParams {
@@ -14,13 +14,20 @@ interface CountryResult {
   title: string;
 }
 
+interface ConfigurationResult {
+  poolSize: number;
+  wtimeout: number;
+  authInfo: any;
+}
+
 // A Movie from mflix
-interface MflixMovie {
+export interface MflixMovie {
   _id: string;
   title: string;
   year: number;
   runtime: number;
   released: Date;
+  text: string;
   cast: string[];
   metacriticd: number;
   poster: string;
@@ -61,6 +68,7 @@ interface FacetedSearchReturn {
   rating: Record<string, any>;
   runtime: Record<string, any>;
   movies: MflixMovie[];
+  count: number;
 }
 
 let movies: Collection;
@@ -68,6 +76,7 @@ let mflix: Db;
 const DEFAULT_SORT = [['tomatoes.viewer.numReviews', -1]];
 
 export default class MoviesDAO {
+  static movies: Collection<Document>;
   static injectDB(conn: MongoClient): void {
     if (movies) {
       return;
@@ -84,23 +93,6 @@ export default class MoviesDAO {
   }
 
   /**
-   * Retrieves the connection pool size, write concern and user roles on the
-   * current client.
-   * @returns {Promise<ConfigurationResult>} An object with configuration details.
-   */
-  static async getConfiguration() {
-    const roleInfo = await mflix.command({ connectionStatus: 1 });
-    const authInfo = roleInfo.authInfo.authenticatedUserRoles[0];
-    const { poolSize, wtimeout } = movies.s.db.serverConfig.s.options;
-    const response = {
-      poolSize,
-      wtimeout,
-      authInfo
-    };
-    return response;
-  }
-
-  /**
    * Finds and returns movies originating from one or more countries.
    * Returns a list of objects, each object contains a title and an _id.
    * @param {string[]} countries - The list of countries.
@@ -108,7 +100,7 @@ export default class MoviesDAO {
    */
   static async getMoviesByCountry(
     countries: string[]
-  ): Promise<CountryResult[]> {
+  ): Promise<Document[]> {
     /**
     Ticket: Projection
 
@@ -192,17 +184,17 @@ export default class MoviesDAO {
    * @param {number} moviesPerPage - The number of movies to display per page.
    * @returns {FacetedSearchReturn} FacetedSearchReturn
    */
-  static async facetedSearch({
-    filters = null,
-    page = 0,
-    moviesPerPage = 20
-  } = {}): Promise<FacetedSearchReturn> {
+  static async facetedSearch(
+    filters: MflixMovie,
+    page: number,
+    moviesPerPage: number
+  ): Promise<any> {
     if (!filters || !filters.cast) {
       throw new Error('Must specify cast members to filter by.');
     }
     const matchStage = { $match: filters };
     const sortStage = { $sort: { 'tomatoes.viewer.numReviews': -1 } };
-    const countingPipeline = [matchStage, sortStage, { $count: 'count' }];
+    const countingPipeline: Document[] = [matchStage, sortStage, { $count: 'count' }];
     const skipStage = { $skip: moviesPerPage * page };
     const limitStage = { $limit: moviesPerPage };
     const facetStage = {
@@ -252,7 +244,7 @@ export default class MoviesDAO {
     to complete this task, but you might have to do something about `const`.
     */
 
-    const queryPipeline = [
+    const queryPipeline: Document[] = [
       matchStage,
       sortStage
       // TODO Ticket: Faceted Search
@@ -280,30 +272,28 @@ export default class MoviesDAO {
    * @returns {GetMoviesResult} An object with movie results and total results
    * that would match this query
    */
-  static async getMovies({
-    // here's where the default parameters are set for the getMovies method
-    filters = null,
-    page = 0,
-    moviesPerPage = 20
-  } = {}) {
-    let queryParams = {};
+  static async getMovies(
+    filters: MflixMovie,
+    page: number,
+    moviesPerPage: number): Promise<GetMoviesResult> {
+    let queryParams = {} as QueryParams;
     if (filters) {
       if ('text' in filters) {
         queryParams = this.textSearchQuery(filters['text']);
       } else if ('cast' in filters) {
         queryParams = this.castSearchQuery(filters['cast']);
       } else if ('genre' in filters) {
-        queryParams = this.genreSearchQuery(filters['genre']);
+        queryParams = this.genreSearchQuery(filters['genres']);
       }
     }
 
-    let { query = {}, project = {}, sort = DEFAULT_SORT } = queryParams;
+    const { query = {}, project = {}, sort = DEFAULT_SORT } = queryParams;
     let cursor;
     try {
-      cursor = await movies.find(query).project(project).sort(sort);
+      cursor = movies.find(query).project(project).sort(sort);
     } catch (e) {
       console.error(`Unable to issue find command, ${e}`);
-      return { moviesList: [], totalNumMovies: 0 };
+      return { moviesList: [], totalNumResults: 0 };
     }
 
     /**
@@ -320,15 +310,15 @@ export default class MoviesDAO {
     const displayCursor = cursor.limit(moviesPerPage);
 
     try {
-      const moviesList = await displayCursor.toArray();
-      const totalNumMovies = page === 0 ? movies.countDocuments(query) : 0;
+      const moviesList = await displayCursor.toArray() as MflixMovie[];
+      const totalNumResults = page === 0 ? await movies.countDocuments(query) : 0;
 
-      return { moviesList, totalNumMovies };
+      return { moviesList, totalNumResults };
     } catch (e) {
       console.error(
         `Unable to convert cursor to array or problem counting documents, ${e}`
       );
-      return { moviesList: [], totalNumMovies: 0 };
+      return { moviesList: [], totalNumResults: 0 };
     }
   }
 
@@ -337,7 +327,7 @@ export default class MoviesDAO {
    * @param {string} id - The desired movie id, the _id in Mongo
    * @returns {MflixMovie | null} Returns either a single movie or nothing
    */
-  static async getMovieByID(id: string): Promise<MflixMovie | null> {
+  static async getMovieByID(id: string): Promise<any> {
     try {
       /**
       Ticket: Get Comments

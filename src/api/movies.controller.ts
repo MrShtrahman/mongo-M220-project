@@ -1,38 +1,51 @@
-import MoviesDAO from '../DAL/moviesDAL';
+import { Response, Request, NextFunction } from 'express';
+import MoviesDAO, { MflixMovie } from '../DAL/moviesDAL';
 
+const MOVIES_PER_PAGE = 20;
 export default class MoviesController {
-  static async apiGetMovies(req, res, next) {
-    const MOVIES_PER_PAGE = 20;
-    const { moviesList, totalNumMovies } = await MoviesDAO.getMovies();
-    let response = {
+  static async apiGetMovies(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    const { moviesList, totalNumResults } = await MoviesDAO.getMovies({} as MflixMovie, 0, MOVIES_PER_PAGE);
+    const response = {
       movies: moviesList,
       page: 0,
       filters: {},
       entries_per_page: MOVIES_PER_PAGE,
-      total_results: totalNumMovies
+      total_results: totalNumResults
     };
     res.json(response);
   }
 
-  static async apiGetMoviesByCountry(req, res, next) {
-    let countries = req.query.countries == '' ? 'USA' : req.query.countries;
-    let countryList = Array.isArray(countries) ? countries : Array(countries);
-    let moviesList = await MoviesDAO.getMoviesByCountry(countryList);
-    let response = {
+  static async apiGetMoviesByCountry(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    const countries = req.query.countries === '' ? 'USA' : req.query.countries;
+    const countryList = Array.isArray(countries) ? countries : Array(countries);
+    const moviesList = await MoviesDAO.getMoviesByCountry(countryList as string[]);
+    const response = {
       titles: moviesList
     };
     res.json(response);
   }
 
-  static async apiGetMovieById(req, res, next) {
+  static async apiGetMovieById(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
     try {
-      let id = req.params.id || {};
-      let movie = await MoviesDAO.getMovieByID(id);
+      const id = req.params.id || '';
+      const movie = await MoviesDAO.getMovieByID(id);
       if (!movie) {
         res.status(404).json({ error: 'Not found' });
         return;
       }
-      let updated_type = movie.lastupdated instanceof Date ? 'Date' : 'other';
+      const updated_type = movie.lastupdated instanceof Date ? 'Date' : 'other';
       res.json({ movie, updated_type });
     } catch (e) {
       console.log(`api, ${e}`);
@@ -40,11 +53,14 @@ export default class MoviesController {
     }
   }
 
-  static async apiSearchMovies(req, res, next) {
-    const MOVIES_PER_PAGE = 20;
-    let page;
+  static async apiSearchMovies(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
+    let page: number;
     try {
-      page = req.query.page ? parseInt(req.query.page, 10) : 0;
+      page = req.query.page ? parseInt(req.query.page + '', 10) : 0;
     } catch (e) {
       console.error(`Got bad value for page:, ${e}`);
       page = 0;
@@ -56,7 +72,7 @@ export default class MoviesController {
       console.error(`No search keys specified: ${e}`);
     }
 
-    let filters = {};
+    const filters = {} as any;
 
     switch (searchType) {
       case 'genre':
@@ -66,60 +82,62 @@ export default class MoviesController {
         break;
       case 'cast':
         if (req.query.cast !== '') {
-          filters.cast = req.query.cast;
+          filters.cast = req.query.cast as string[];
         }
         break;
       case 'text':
         if (req.query.text !== '') {
-          filters.text = req.query.text;
+          filters.text = req.query.text as string;
         }
         break;
       default:
-      // nothing to do
     }
 
-    const { moviesList, totalNumMovies } = await MoviesDAO.getMovies({
+    const { moviesList, totalNumResults } = await MoviesDAO.getMovies(
       filters,
       page,
       MOVIES_PER_PAGE
-    });
+    );
 
-    let response = {
+    const response = {
       movies: moviesList,
       page: page,
       filters,
       entries_per_page: MOVIES_PER_PAGE,
-      total_results: totalNumMovies
+      total_results: totalNumResults
     };
 
     res.json(response);
   }
 
-  static async apiFacetedSearch(req, res, next) {
-    const MOVIES_PER_PAGE = 20;
+  static async apiFacetedSearch(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> {
 
-    let page;
+    let page: number;
     try {
-      page = req.query.page ? parseInt(req.query.page, 10) : 0;
+      page = req.query.page ? parseInt(req.query.page + '', 10) : 0;
     } catch (e) {
       console.error(`Got bad value for page, defaulting to 0: ${e}`);
       page = 0;
     }
 
-    let filters = {};
+    let filters = {} as any;
 
     filters =
       req.query.cast !== ''
-        ? { cast: new RegExp(req.query.cast, 'i') }
+        ? { cast: new RegExp(req.query.cast as string, 'i') }
         : { cast: 'Tom Hanks' };
 
-    const facetedSearchResult = await MoviesDAO.facetedSearch({
+    const facetedSearchResult = await MoviesDAO.facetedSearch(
       filters,
       page,
       MOVIES_PER_PAGE
-    });
+    );
 
-    let response = {
+    const response = {
       movies: facetedSearchResult.movies,
       facets: {
         runtime: facetedSearchResult.runtime,
@@ -132,19 +150,5 @@ export default class MoviesController {
     };
 
     res.json(response);
-  }
-
-  static async getConfig(req, res, next) {
-    const { poolSize, wtimeout, authInfo } = await MoviesDAO.getConfiguration();
-    try {
-      let response = {
-        pool_size: poolSize,
-        wtimeout,
-        ...authInfo
-      };
-      res.json(response);
-    } catch (e) {
-      res.status(500).json({ error: e });
-    }
   }
 }

@@ -45,7 +45,7 @@ export default class UsersDAO {
    * @param {string} email - The email of the desired user
    * @returns {Object | null} Returns either a single user or nothing
    */
-  static async getUser(email: string): Promise<Document | undefined> {
+  static async getUser(email: string): Promise<Document | null> {
     // TODO Ticket: UserInfo Management
     // Retrieve the user document corresponding with the user's email.
     return await users.findOne({ someField: 'someValue' });
@@ -86,7 +86,7 @@ export default class UsersDAO {
    * @param {string} jwt - A JSON web token representing the user's claims
    * @returns {DALResponse} Returns either a "success" or an "error" Object
    */
-  static async loginUser(email: string, jwt: Jwt): Promise<DALResponse> {
+  static async loginUser(email: string, jwt: string): Promise<DALResponse> {
     try {
       // TODO Ticket: UserInfo Management
       // Use an UPSERT statement to update the "jwt" field in the document,
@@ -125,14 +125,14 @@ export default class UsersDAO {
    * @returns {Object | null} Returns a user session Object, an "error" Object
    * if something went wrong, or null if user was not found.
    */
-  static async getUserSession(email: string): Promise<Document | undefined> {
+  static async getUserSession(email: string): Promise<Document | null> {
     try {
       // TODO Ticket: UserInfo Management
       // Retrieve the session document corresponding with the user's email.
       return sessions.findOne({ someField: 'someValue' });
     } catch (e) {
       console.error(`Error occurred while retrieving user session, ${e}`);
-      return;
+      return null;
     }
   }
 
