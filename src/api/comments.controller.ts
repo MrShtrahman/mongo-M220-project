@@ -47,9 +47,8 @@ export default class CommentsController {
     try {
       const userJwt = req.get('Authorization')?.slice('Bearer '.length);
       const user = await User.decoded(userJwt || '');
-      const { error } = user;
-      if (error) {
-        res.status(401).json({ error });
+      if (user.error) {
+        res.status(401).json({ error: user.error });
         return;
       }
 
@@ -63,7 +62,6 @@ export default class CommentsController {
         text,
         date
       );
-
       if (commentResponse.error) {
         res.status(400).json({ error: commentResponse.error });
       }
@@ -97,7 +95,7 @@ export default class CommentsController {
         return;
       }
 
-      const commentId = req.body.comment_id as string;
+      const commentId = req.body.comment_id;
       const userEmail = user.email;
       const commentResponse = await CommentsDAO.deleteComment(
         commentId,

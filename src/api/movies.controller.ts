@@ -1,12 +1,11 @@
-import { Response, Request, NextFunction } from 'express';
+import { Response, Request } from 'express';
 import MoviesDAO, { MflixMovie } from '../DAL/moviesDAL';
 
 const MOVIES_PER_PAGE = 20;
 export default class MoviesController {
   static async apiGetMovies(
     req: Request,
-    res: Response,
-    next: NextFunction
+    res: Response
   ): Promise<void> {
     const { moviesList, totalNumResults } = await MoviesDAO.getMovies({} as MflixMovie, 0, MOVIES_PER_PAGE);
     const response = {
@@ -21,8 +20,7 @@ export default class MoviesController {
 
   static async apiGetMoviesByCountry(
     req: Request,
-    res: Response,
-    next: NextFunction
+    res: Response
   ): Promise<void> {
     const countries = req.query.countries === '' ? 'USA' : req.query.countries;
     const countryList = Array.isArray(countries) ? countries : Array(countries);
@@ -35,8 +33,7 @@ export default class MoviesController {
 
   static async apiGetMovieById(
     req: Request,
-    res: Response,
-    next: NextFunction
+    res: Response
   ): Promise<void> {
     try {
       const id = req.params.id || '';
@@ -55,8 +52,7 @@ export default class MoviesController {
 
   static async apiSearchMovies(
     req: Request,
-    res: Response,
-    next: NextFunction
+    res: Response
   ): Promise<void> {
     let page: number;
     try {
@@ -73,7 +69,6 @@ export default class MoviesController {
     }
 
     const filters = {} as any;
-
     switch (searchType) {
       case 'genre':
         if (req.query.genre !== '') {
@@ -112,8 +107,7 @@ export default class MoviesController {
 
   static async apiFacetedSearch(
     req: Request,
-    res: Response,
-    next: NextFunction
+    res: Response
   ): Promise<void> {
 
     let page: number;

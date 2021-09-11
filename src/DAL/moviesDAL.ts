@@ -42,6 +42,7 @@ export interface MflixMovie {
   countries: string[];
   rated: string[];
   genres: string[];
+  genre: string[];
   comments: string[];
 }
 
@@ -118,7 +119,7 @@ export default class MoviesDAO {
       // and _id. Do not put a limit in your own implementation, the limit
       // here is only included to avoid sending 46000 documents down the
       // wire.
-      cursor = movies.find().limit(1);
+      cursor = movies.find({ countries: { $in: countries } }).project({ title: 1 });
     } catch (e) {
       console.error(`Unable to issue find command, ${e}`);
       return [];
@@ -147,7 +148,8 @@ export default class MoviesDAO {
    * @returns {QueryParams} The QueryParams for cast search
    */
   static castSearchQuery(cast: string[]): QueryParams {
-    const query = { cast: { $in: cast } };
+    const searchCast = Array.isArray(cast) ? cast : Array(cast);
+    const query = { cast: { $in: searchCast } };
     const project = {};
     const sort = DEFAULT_SORT;
 
@@ -166,10 +168,10 @@ export default class MoviesDAO {
     Given an array of one or more genres, construct a query that searches
     MongoDB for movies with that genre.
     */
-
+   const searchGenre = Array.isArray(genre) ? genre : Array(genre);
     // TODO Ticket: Text and Subfield Search
     // Construct a query that will search for the chosen genre.
-    const query = {};
+    const query = { genres: { $in: searchGenre } };
     const project = {};
     const sort = DEFAULT_SORT;
 
@@ -246,7 +248,10 @@ export default class MoviesDAO {
 
     const queryPipeline: Document[] = [
       matchStage,
-      sortStage
+      sortStage,
+      skipStage,
+      limitStage,
+      facetStage
       // TODO Ticket: Faceted Search
       // Add the stages to queryPipeline in the correct order.
     ];
@@ -283,14 +288,14 @@ export default class MoviesDAO {
       } else if ('cast' in filters) {
         queryParams = this.castSearchQuery(filters['cast']);
       } else if ('genre' in filters) {
-        queryParams = this.genreSearchQuery(filters['genres']);
+        queryParams = this.genreSearchQuery(filters['genre']);
       }
     }
 
     const { query = {}, project = {}, sort = DEFAULT_SORT } = queryParams;
     let cursor;
     try {
-      cursor = movies.find(query).project(project).sort(sort);
+      cursor = movies.find(query).project(project).sort(sort).skip(page * moviesPerPage);
     } catch (e) {
       console.error(`Unable to issue find command, ${e}`);
       return { moviesList: [], totalNumResults: 0 };
@@ -344,10 +349,31 @@ export default class MoviesDAO {
       const pipeline = [
         {
           $match: {
-            _id: new ObjectId(id)
-          }
-        }
-      ];
+            _id: new ObjectId(id),
+          },
+        },
+        {
+          $lookup: {
+            from: "comments",
+            let: { id: "$_id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $eq: ["$movie_id", "$$id"],
+                  },
+                },
+              },
+              {
+                $sort: {
+                  date: -1,
+                },
+              },
+            ],
+            as: "comments",
+          },
+        },
+      ]
       return await movies.aggregate(pipeline).next();
     } catch (e) {
       /**

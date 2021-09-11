@@ -8,6 +8,10 @@ import {
   Document
 } from 'mongodb';
 
+interface DALResponse {
+  success?: boolean;
+  error?: string | unknown;
+}
 let comments: Collection;
 
 export default class CommentsDAO {
@@ -58,7 +62,13 @@ export default class CommentsDAO {
     try {
       // TODO Ticket: Create/Update Comments
       // Construct the comment document to be inserted into MongoDB.
-      const commentDoc = { someField: 'someValue' };
+      const commentDoc = {
+        movie_id: movieId,
+        date: date,
+        text: comment,
+        name: user.name,
+        email: user.email
+      };
 
       return await comments.insertOne(commentDoc);
     } catch (e) {
@@ -88,10 +98,9 @@ export default class CommentsDAO {
       // Use the commentId and userEmail to select the proper comment, then
       // update the "text" and "date" fields of the selected comment.
       const updateResponse = await comments.updateOne(
-        { someField: 'someValue' },
-        { $set: { someOtherField: 'someOtherValue' } }
+        { _id: new ObjectId(commentId), email: userEmail },
+        { $set: { date, text } }
       );
-
       return updateResponse;
     } catch (e) {
       console.error(`Unable to update comment: ${e}`);
@@ -116,7 +125,8 @@ export default class CommentsDAO {
       // TODO Ticket: Delete Comments
       // Use the userEmail and commentId to delete the proper comment.
       const deleteResponse = await comments.deleteOne({
-        _id: new ObjectId(commentId)
+        _id: new ObjectId(commentId),
+        email: userEmail
       });
 
       return deleteResponse;
@@ -137,8 +147,31 @@ export default class CommentsDAO {
     try {
       // TODO Ticket: User Report
       // Return the 20 users who have commented the most on MFlix.
-      const pipeline: Document[] = [];
-
+      const pipeline: Document[] = [
+        {
+          $match: {}
+        },
+        {
+          $group: {
+            _id: {
+              email: '$email'
+            },
+            count: { $sum: 1 }
+          }
+        },
+        {
+          $project: {
+            _id: '$_id.email',
+            count: '$count'
+          }
+        },
+        {
+          $sort: {
+            count: -1
+          }
+        },
+        { $limit: 20 }
+      ];
       // TODO Ticket: User Report
       // Use a more durable Read Concern here to make sure this data is not stale.
       const readConcern = comments.readConcern;
