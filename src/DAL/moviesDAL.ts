@@ -1,5 +1,5 @@
 import { ObjectId } from 'bson';
-import { Collection, MongoClient, Db, Document } from 'mongodb';
+import { Collection, MongoClient, Db, Document, MongoClientOptions } from 'mongodb';
 
 // This is a parsed query, sort, and project bundle.
 interface QueryParams {
@@ -74,6 +74,7 @@ interface FacetedSearchReturn {
 
 let movies: Collection;
 let mflix: Db;
+let clientOptions: MongoClientOptions;
 const DEFAULT_SORT = [['tomatoes.viewer.numReviews', -1]];
 
 export default class MoviesDAO {
@@ -85,12 +86,30 @@ export default class MoviesDAO {
     try {
       mflix = conn.db(process.env.MFLIX_NS);
       movies = conn.db(process.env.MFLIX_NS).collection('movies');
+      clientOptions = conn.options;
       this.movies = movies; // this is only for testing
     } catch (e) {
       console.error(
         `Unable to establish a collection handle in moviesDAO: ${e}`
       );
     }
+  }
+
+  /**
+   * Retrieves the connection pool size, write concern and user roles on the
+   * current client.
+   * @returns {Promise<ConfigurationResult>} An object with configuration details.
+   */
+  static async getConfiguration(): Promise<MongoClientOptions> {
+    const roleInfo = await mflix.command({ connectionStatus: 1 })
+    const auth = roleInfo.authInfo.authenticatedUserRoles[0]
+    const { maxPoolSize, wtimeoutMS } = clientOptions;
+    const response: MongoClientOptions = {
+      auth,
+      maxPoolSize,
+      wtimeoutMS
+    }
+    return response;
   }
 
   /**
@@ -386,7 +405,7 @@ export default class MoviesDAO {
       // TODO Ticket: Error Handling
       // Catch the InvalidId error by string matching, and then handle it.
       console.error(`Something went wrong in getMovieByID: ${e}`);
-      throw e;
+      return null;
     }
   }
 }

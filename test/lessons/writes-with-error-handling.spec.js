@@ -1,4 +1,3 @@
-import { ObjectId } from "mongodb"
 describe("Error Handling", () => {
   /* Hello!
    * In this lesson we are going to talk about Error Handling. We will cover a

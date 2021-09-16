@@ -1,12 +1,14 @@
 import express, { urlencoded, json } from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
+import helmet from 'helmet';
 import movies from './api/movies.route';
 import users from './api/users.route';
 
 const app = express();
 
 app.use(cors());
+app.use(helmet());
 process.env.NODE_ENV !== 'prod' && app.use(morgan('dev'));
 app.use(json());
 app.use(urlencoded({ extended: true }));

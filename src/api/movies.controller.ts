@@ -145,4 +145,18 @@ export default class MoviesController {
 
     res.json(response);
   }
+
+  static async getConfig(req: Request, res: Response): Promise<void> {
+    const { auth, maxPoolSize, wtimeoutMS } = await MoviesDAO.getConfiguration()
+    try {
+      const response = {
+        pool_size: maxPoolSize,
+        wtimeout: wtimeoutMS || 2500,
+        ...auth,
+      }
+      res.json(response)
+    } catch (e) {
+      res.status(500).json({ error: e })
+    }
+  }
 }
